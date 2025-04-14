@@ -2,6 +2,7 @@
 import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OBJLoader } from 'three-stdlib';
+import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 const ThreeScene: React.FC = () => {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -15,8 +16,17 @@ const ThreeScene: React.FC = () => {
     const scene = new THREE.Scene();
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+
+    const controls = new OrbitControls( camera, document.getElementById('root') );
+
+  
     camera.position.set(3, 4, 5);
     camera.lookAt(0, 0, 0);
+
+    
+
+    //controls.update() must be called after any manual changes to the camera's transform
+    controls.update();
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
