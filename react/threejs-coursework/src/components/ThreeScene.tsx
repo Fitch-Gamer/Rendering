@@ -3,6 +3,8 @@ import React, { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { OBJLoader } from 'three-stdlib';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { useData } from '../context/DataContext';
+
 
 const ThreeScene: React.FC = () => {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -11,6 +13,14 @@ const ThreeScene: React.FC = () => {
   const cubeRef = useRef<THREE.Mesh | null>(null);
   const objScaleRef = useRef<number>(1);
   const shouldRotateRef = useRef<boolean>(true);
+
+  const { data, setData } = useData();
+
+  const dataRef = useRef(data);
+
+  useEffect(() => {
+    dataRef.current = data;
+  }, [data]);
 
   useEffect(() => {
     const scene = new THREE.Scene();
@@ -146,13 +156,13 @@ const ThreeScene: React.FC = () => {
 
     const animate = () => {
       requestAnimationFrame(animate);
-      const t = (Date.now() / 1000) % (6 * Math.PI);
 
       if (shouldRotateRef.current && objRef.current) {
-        if (t < 2 * Math.PI) objRef.current.rotation.x = t;
-        else if (t < 4 * Math.PI) objRef.current.rotation.y = t - 2 * Math.PI;
-        else objRef.current.rotation.z = t - 4 * Math.PI;
+        objRef.current.rotation.x += dataRef.current.xspeed/360;
+      objRef.current.rotation.y += dataRef.current.yspeed/360;
+      objRef.current.rotation.z += dataRef.current.zspeed/360;
       }
+      console.log(data.xspeed);
 
       renderer.render(scene, camera);
     };
