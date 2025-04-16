@@ -5,7 +5,6 @@ type GUIData = {
   yspeed: number;
   zspeed: number;
   color: string;
-  visible: boolean;
 };
 
 type DataContextType = {
@@ -18,7 +17,6 @@ const defaultData: GUIData = {
   yspeed: 1,
   zspeed: 1,
   color: '#00ffcc',
-  visible: true,
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);

@@ -5,7 +5,6 @@ import { OBJLoader } from 'three-stdlib';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useData } from '../context/DataContext';
 
-
 const ThreeScene: React.FC = () => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const objRef = useRef<THREE.Object3D | null>(null);
@@ -13,29 +12,65 @@ const ThreeScene: React.FC = () => {
   const cubeRef = useRef<THREE.Mesh | null>(null);
   const objScaleRef = useRef<number>(1);
   const shouldRotateRef = useRef<boolean>(true);
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const { data, setData } = useData();
-
+  const { data } = useData();
   const dataRef = useRef(data);
 
   useEffect(() => {
     dataRef.current = data;
   }, [data]);
 
+  const LoadFile = (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const contents = event.target?.result;
+      if (typeof contents === 'string') {
+        const loader = new OBJLoader();
+        const object = loader.parse(contents);
+
+        if (sceneRef.current && objRef.current) {
+          sceneRef.current.remove(objRef.current);
+        }
+
+        const bbox = new THREE.Box3().setFromObject(object);
+        const size = new THREE.Vector3();
+        bbox.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z);
+        const scale = 1 / maxDim;
+
+        object.scale.set(scale, scale, scale);
+        objScaleRef.current = scale;
+
+        object.traverse((child) => {
+          if ((child as THREE.Mesh).isMesh) {
+            (child as THREE.Mesh).material = new THREE.MeshPhongMaterial({ color: dataRef.current.color });
+          }
+        });
+
+        const mesh = object.children[0] as THREE.Mesh;
+        const bufferGeo = mesh.geometry as THREE.BufferGeometry;
+        bufferGeo.center();
+
+        objRef.current = object;
+        objGeoRef.current = bufferGeo;
+
+        sceneRef.current?.add(object);
+      }
+    };
+    reader.readAsText(file);
+  };
+
   useEffect(() => {
     const scene = new THREE.Scene();
+    sceneRef.current = scene;
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-
-    const controls = new OrbitControls( camera, document.getElementById('root') );
-
-  
     camera.position.set(3, 4, 5);
     camera.lookAt(0, 0, 0);
 
-    
-
-    //controls.update() must be called after any manual changes to the camera's transform
+    const controls = new OrbitControls(camera, document.getElementById('root')!);
     controls.update();
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -53,11 +88,12 @@ const ThreeScene: React.FC = () => {
     scene.add(axesHelper);
 
     const geometry = new THREE.BoxGeometry(1, 1, 1);
-    const material = new THREE.MeshPhongMaterial({ color: 0xffffff });
+    const material = new THREE.MeshPhongMaterial({ color: dataRef.current.color });
     const cube = new THREE.Mesh(geometry, material);
     cube.rotation.set(0, 0, 0);
     cube.castShadow = true;
     cube.receiveShadow = true;
+
     cubeRef.current = cube;
     objRef.current = cube;
     objGeoRef.current = geometry;
@@ -84,13 +120,13 @@ const ThreeScene: React.FC = () => {
       switch (event.key) {
         case 'f':
           if (objRef.current) scene.remove(objRef.current);
-          objRef.current = new THREE.Mesh(currentGeo, new THREE.MeshPhongMaterial({ color: 0xffffff }));
+          objRef.current = new THREE.Mesh(currentGeo, new THREE.MeshPhongMaterial({ color: dataRef.current.color }));
           break;
 
         case 'e':
           if (objRef.current) scene.remove(objRef.current);
           const edges = new THREE.EdgesGeometry(currentGeo);
-          objRef.current = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0xffffff }));
+          objRef.current = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: dataRef.current.color }));
           break;
 
         case 'v':
@@ -113,16 +149,16 @@ const ThreeScene: React.FC = () => {
               object.scale.set(scale, scale, scale);
               objScaleRef.current = scale;
 
-              const mesh = object.children[0] as THREE.Mesh;
-              const bufferGeo = mesh.geometry as THREE.BufferGeometry;
-
               object.traverse((child) => {
                 if ((child as THREE.Mesh).isMesh) {
-                  (child as THREE.Mesh).material = new THREE.MeshPhongMaterial({ color: 0xffffff });
+                  (child as THREE.Mesh).material = new THREE.MeshPhongMaterial({ color: dataRef.current.color });
                 }
               });
 
+              const mesh = object.children[0] as THREE.Mesh;
+              const bufferGeo = mesh.geometry as THREE.BufferGeometry;
               bufferGeo.center();
+
               objRef.current = object;
               objGeoRef.current = bufferGeo;
               scene.add(object);
@@ -158,11 +194,10 @@ const ThreeScene: React.FC = () => {
       requestAnimationFrame(animate);
 
       if (shouldRotateRef.current && objRef.current) {
-        objRef.current.rotation.x += dataRef.current.xspeed/360;
-      objRef.current.rotation.y += dataRef.current.yspeed/360;
-      objRef.current.rotation.z += dataRef.current.zspeed/360;
+        objRef.current.rotation.x += dataRef.current.xspeed / 360;
+        objRef.current.rotation.y += dataRef.current.yspeed / 360;
+        objRef.current.rotation.z += dataRef.current.zspeed / 360;
       }
-      console.log(data.xspeed);
 
       renderer.render(scene, camera);
     };
@@ -176,7 +211,25 @@ const ThreeScene: React.FC = () => {
     };
   }, []);
 
-  return <div ref={mountRef} style={{ width: '100vw', height: '100vh' }} />;
+  return (
+    <div>
+      <div ref={mountRef} style={{ width: '100vw', height: '100vh' }} />
+
+      <input
+  type="file"
+  id="LoadFile" // 🔥 this is what the GUI button tries to trigger
+  accept=".obj"
+  ref={fileInputRef}
+  style={{ display: 'none' }}
+  onChange={(e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      LoadFile(file);
+    }
+  }}
+/>
+    </div>
+  );
 };
 
 export default ThreeScene;
