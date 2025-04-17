@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OBJLoader } from 'three-stdlib';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { useData } from '../context/DataContext';
+import { FBXLoader } from 'three-stdlib';
 
 const ThreeScene: React.FC = () => {
   const mountRef = useRef<HTMLDivElement | null>(null);
@@ -15,6 +16,8 @@ const ThreeScene: React.FC = () => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  let mixer: THREE.AnimationMixer | null = null;
+
   const { data } = useData();
   const dataRef = useRef(data);
 
@@ -22,45 +25,7 @@ const ThreeScene: React.FC = () => {
     dataRef.current = data;
   }, [data]);
 
-  const LoadFile = (file: File) => {
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const contents = event.target?.result;
-      if (typeof contents === 'string') {
-        const loader = new OBJLoader();
-        const object = loader.parse(contents);
 
-        if (sceneRef.current && objRef.current) {
-          sceneRef.current.remove(objRef.current);
-        }
-
-        const bbox = new THREE.Box3().setFromObject(object);
-        const size = new THREE.Vector3();
-        bbox.getSize(size);
-        const maxDim = Math.max(size.x, size.y, size.z);
-        const scale = 1 / maxDim;
-
-        object.scale.set(scale, scale, scale);
-        objScaleRef.current = scale;
-
-        object.traverse((child) => {
-          if ((child as THREE.Mesh).isMesh) {
-            (child as THREE.Mesh).material = new THREE.MeshPhongMaterial({ color: dataRef.current.color });
-          }
-        });
-
-        const mesh = object.children[0] as THREE.Mesh;
-        const bufferGeo = mesh.geometry as THREE.BufferGeometry;
-        bufferGeo.center();
-
-        objRef.current = object;
-        objGeoRef.current = bufferGeo;
-
-        sceneRef.current?.add(object);
-      }
-    };
-    reader.readAsText(file);
-  };
 
   useEffect(() => {
     const scene = new THREE.Scene();
@@ -99,6 +64,8 @@ const ThreeScene: React.FC = () => {
     objGeoRef.current = geometry;
     objScaleRef.current = 1;
 
+    let edge:boolean,vertex:boolean = false;
+
     scene.add(cube);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
@@ -121,18 +88,26 @@ const ThreeScene: React.FC = () => {
         case 'f':
           if (objRef.current) scene.remove(objRef.current);
           objRef.current = new THREE.Mesh(currentGeo, new THREE.MeshPhongMaterial({ color: dataRef.current.color }));
+          edge = false;
+          vertex = false;
           break;
 
         case 'e':
           if (objRef.current) scene.remove(objRef.current);
           const edges = new THREE.EdgesGeometry(currentGeo);
           objRef.current = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: dataRef.current.color }));
+          edge = true;
+          vertex = false;
           break;
+          
 
         case 'v':
           if (objRef.current) scene.remove(objRef.current);
           objRef.current = new THREE.Points(currentGeo, new THREE.PointsMaterial({ size: 1, sizeAttenuation: false }));
+          edge = false;
+          vertex = true;
           break;
+          
 
         case 'l':
           const loader = new OBJLoader();
@@ -189,19 +164,25 @@ const ThreeScene: React.FC = () => {
     };
 
     document.addEventListener('keydown', handleKeyDown);
-
+    const clock = new THREE.Clock();
     const animate = () => {
       requestAnimationFrame(animate);
-
-      if (shouldRotateRef.current && objRef.current) {
-        objRef.current.rotation.x += dataRef.current.xspeed / 360;
-        objRef.current.rotation.y += dataRef.current.yspeed / 360;
-        objRef.current.rotation.z += dataRef.current.zspeed / 360;
+    
+      const delta = clock.getDelta();
+    
+      // ✅ Always update mixer regardless of rotation speeds
+      if (mixer) mixer.update(delta);
+    
+      // ✅ Rotate only if enabled
+      if (objRef.current) {
+        objRef.current.rotation.x += dataRef.current.xspeed * delta;
+        objRef.current.rotation.y += dataRef.current.yspeed * delta;
+        objRef.current.rotation.z += dataRef.current.zspeed * delta;
       }
-
+    
       renderer.render(scene, camera);
     };
-
+    
     animate();
 
     return () => {
@@ -211,6 +192,94 @@ const ThreeScene: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (objRef.current) {
+      objRef.current.traverse((child) => {
+        if ((child as THREE.Mesh).isMesh || (child as THREE.LineSegments).isLineSegments || (child as THREE.Points).isPoints) {
+          const material = (child as THREE.Mesh).material as THREE.Material | THREE.Material[];
+  
+          // Handle multi-material objects
+          const materials = Array.isArray(material) ? material : [material];
+  
+          materials.forEach((mat) => {
+            if ('color' in mat) {
+              (mat as THREE.Material & { color: THREE.Color }).color.set(data.color);
+            }
+          });
+        }
+      });
+    }
+  }, [data.color]);
+
+  const LoadFile = (file: File) => {
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    const reader = new FileReader();
+  
+    reader.onload = () => {
+      if (!reader.result) return;
+  
+      if (ext === 'obj') {
+        const objLoader = new OBJLoader();
+        const content = reader.result as string;
+        const object = objLoader.parse(content);
+        if(sceneRef.current) setupObject(object, sceneRef.current, data);
+      } else if (ext === 'fbx') {
+        const fbxLoader = new FBXLoader();
+  
+        const arrayBuffer = reader.result as ArrayBuffer;
+        const object = fbxLoader.parse(arrayBuffer, '');
+  
+        if (objRef.current && sceneRef.current) sceneRef.current.remove(objRef.current);
+  
+        // Animation setup
+        if (object.animations && object.animations.length > 0) {
+          mixer = new THREE.AnimationMixer(object);
+          object.animations.forEach((clip: THREE.AnimationClip) => {
+            mixer!.clipAction(clip).play();
+          });
+        }
+  
+        if(sceneRef.current) setupObject(object, sceneRef.current, data);
+      } else {
+        alert('Unsupported file type: ' + ext);
+      }
+    };
+  
+    if (ext === 'obj') {
+      reader.readAsText(file);
+    } else if (ext === 'fbx') {
+      reader.readAsArrayBuffer(file);
+    } else {
+      alert('Unsupported file type');
+    }
+  };
+
+  const setupObject = (object: THREE.Object3D, scene: THREE.Scene, data: any) => {
+    if (objRef.current) scene.remove(objRef.current);
+  
+    const bbox = new THREE.Box3().setFromObject(object);
+    const size = new THREE.Vector3();
+    bbox.getSize(size);
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const scale = 1 / maxDim;
+  
+    object.scale.set(scale, scale, scale);
+    objScaleRef.current = scale;
+  
+    object.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        (child as THREE.Mesh).material = new THREE.MeshPhongMaterial({ color: data.color });
+      }
+    });
+  
+    const mesh = object.children.find((c): c is THREE.Mesh => (c as THREE.Mesh).isMesh);
+    if (mesh) objGeoRef.current = mesh.geometry as THREE.BufferGeometry;
+  
+    objRef.current = object;
+    scene.add(object);
+  };
+  
+
   return (
     <div>
       <div ref={mountRef} style={{ width: '100vw', height: '100vh' }} />
@@ -218,13 +287,14 @@ const ThreeScene: React.FC = () => {
       <input
   type="file"
   id="LoadFile" // 🔥 this is what the GUI button tries to trigger
-  accept=".obj"
+  accept=".obj,.fbx"
   ref={fileInputRef}
   style={{ display: 'none' }}
   onChange={(e) => {
     const file = e.target.files?.[0];
     if (file) {
       LoadFile(file);
+      e.target.value = '';
     }
   }}
 />
