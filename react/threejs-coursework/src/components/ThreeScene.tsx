@@ -17,7 +17,7 @@ const ThreeScene: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
 
-  const ObjectsRef = useRef<THREE.Object3D | null>(null);
+  const ObjectsRef = useRef<THREE.Object3D[] | null>(null);
 
 
 
@@ -26,7 +26,7 @@ const ThreeScene: React.FC = () => {
 
 
 
-  let mixer: THREE.AnimationMixer | null = null;
+  let mixer: THREE.AnimationMixer[]  = [];
 
   const { data } = useData();
   const dataRef = useRef(data);
@@ -120,6 +120,7 @@ const ThreeScene: React.FC = () => {
               const scale = 1 / maxDim;
 
               object.scale.set(scale, scale, scale);
+              object.position.set(dataRef.current.xpos,dataRef.current.ypos,dataRef.current.zpos)
               objScaleRef.current = scale;
 
               object.traverse((child) => {
@@ -168,7 +169,7 @@ const ThreeScene: React.FC = () => {
     
       const delta = clock.getDelta();
       console.log(mixer);
-      if (mixer) mixer.update(delta);
+      mixer.forEach((element) => element.update(delta));
     
       if (objRef.current) {
 
@@ -216,17 +217,20 @@ const ThreeScene: React.FC = () => {
   const Faces = () => {
     if (objRef.current && sceneRef.current) sceneRef.current.remove(objRef.current);
     if(objGeoRef.current) objRef.current = new THREE.Mesh(objGeoRef.current, new THREE.MeshPhongMaterial({ color: dataRef.current.color }))
+      if(objRef.current) objRef.current.position.set(data.xpos,data.ypos,data.zpos);
   }
 
   const Edges = () => {
     if (objRef.current && sceneRef.current) sceneRef.current.remove(objRef.current);
           const edges = new THREE.EdgesGeometry(objGeoRef.current);
           objRef.current = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: dataRef.current.color }));
+          if(objRef.current) objRef.current.position.set(data.xpos,data.ypos,data.zpos);
   }
 
   const Verticies = () => {
     if (objRef.current && sceneRef.current) sceneRef.current.remove(objRef.current);
     if(objGeoRef.current)objRef.current = new THREE.Points(objGeoRef.current, new THREE.PointsMaterial({ size: 1, sizeAttenuation: false }));
+    if(objRef.current) objRef.current.position.set(data.xpos,data.ypos,data.zpos);
   }
 
   const LoadFile = (file: File) => {
@@ -251,9 +255,9 @@ const ThreeScene: React.FC = () => {
   
         // Animation setup
         if (object.animations && object.animations.length > 0) {
-          mixer = new THREE.AnimationMixer(object);
+          mixer?.push(new THREE.AnimationMixer(object));
           object.animations.forEach((clip: THREE.AnimationClip) => {
-            mixer!.clipAction(clip).play();
+            if(mixer) mixer[mixer.length -1]!.clipAction(clip).play();
           });
         }
   
@@ -293,7 +297,7 @@ const ThreeScene: React.FC = () => {
     const mesh = object.children.find((c): c is THREE.Mesh => (c as THREE.Mesh).isMesh);
     if (mesh) objGeoRef.current = mesh.geometry as THREE.BufferGeometry;
   
-    ObjectsRef.current = object; 
+    ObjectsRef.current?.push(object); 
     scene.add(object);
   };
   

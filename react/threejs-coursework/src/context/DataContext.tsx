@@ -18,12 +18,12 @@ type DataContextType = {
 };
 
 const defaultData: GUIData = {
-  xspeed: 1,
-  yspeed: 1,
-  zspeed: 1,
-  xpos: 0,
-  ypos: 0,
-  zpos: 0,
+  xspeed: 0,
+  yspeed: 0,
+  zspeed: 0,
+  xpos:0,
+  ypos:0,
+  zpos:0,
   color: '#00ffcc',
 };
 
