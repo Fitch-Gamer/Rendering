@@ -16,6 +16,16 @@ const ThreeScene: React.FC = () => {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+
+  const ObjectsRef = useRef<THREE.Object3D | null>(null);
+
+
+
+
+
+
+
+
   let mixer: THREE.AnimationMixer | null = null;
 
   const { data } = useData();
@@ -64,8 +74,6 @@ const ThreeScene: React.FC = () => {
     objGeoRef.current = geometry;
     objScaleRef.current = 1;
 
-    let edge:boolean,vertex:boolean = false;
-
     scene.add(cube);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
@@ -86,26 +94,16 @@ const ThreeScene: React.FC = () => {
 
       switch (event.key) {
         case 'f':
-          if (objRef.current) scene.remove(objRef.current);
-          objRef.current = new THREE.Mesh(currentGeo, new THREE.MeshPhongMaterial({ color: dataRef.current.color }));
-          edge = false;
-          vertex = false;
+          Faces();
           break;
 
         case 'e':
-          if (objRef.current) scene.remove(objRef.current);
-          const edges = new THREE.EdgesGeometry(currentGeo);
-          objRef.current = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: dataRef.current.color }));
-          edge = true;
-          vertex = false;
+          Edges();
           break;
           
 
         case 'v':
-          if (objRef.current) scene.remove(objRef.current);
-          objRef.current = new THREE.Points(currentGeo, new THREE.PointsMaterial({ size: 1, sizeAttenuation: false }));
-          edge = false;
-          vertex = true;
+          Verticies();
           break;
           
 
@@ -169,15 +167,15 @@ const ThreeScene: React.FC = () => {
       requestAnimationFrame(animate);
     
       const delta = clock.getDelta();
-    
-      // ✅ Always update mixer regardless of rotation speeds
+      console.log(mixer);
       if (mixer) mixer.update(delta);
     
-      // ✅ Rotate only if enabled
       if (objRef.current) {
-        objRef.current.rotation.x += dataRef.current.xspeed * delta;
-        objRef.current.rotation.y += dataRef.current.yspeed * delta;
-        objRef.current.rotation.z += dataRef.current.zspeed * delta;
+
+        objRef.current.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), dataRef.current.xspeed * delta);
+        objRef.current.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), dataRef.current.yspeed * delta);
+        objRef.current.rotateOnWorldAxis(new THREE.Vector3(0, 0, 1), dataRef.current.zspeed * delta);
+
       }
     
       renderer.render(scene, camera);
@@ -211,6 +209,26 @@ const ThreeScene: React.FC = () => {
     }
   }, [data.color]);
 
+  useEffect(()=>{
+    if(objRef.current) objRef.current.position.set(data.xpos,data.ypos,data.zpos);
+  },[data.xpos,data.ypos,data.zpos])
+
+  const Faces = () => {
+    if (objRef.current && sceneRef.current) sceneRef.current.remove(objRef.current);
+    if(objGeoRef.current) objRef.current = new THREE.Mesh(objGeoRef.current, new THREE.MeshPhongMaterial({ color: dataRef.current.color }))
+  }
+
+  const Edges = () => {
+    if (objRef.current && sceneRef.current) sceneRef.current.remove(objRef.current);
+          const edges = new THREE.EdgesGeometry(objGeoRef.current);
+          objRef.current = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: dataRef.current.color }));
+  }
+
+  const Verticies = () => {
+    if (objRef.current && sceneRef.current) sceneRef.current.remove(objRef.current);
+    if(objGeoRef.current)objRef.current = new THREE.Points(objGeoRef.current, new THREE.PointsMaterial({ size: 1, sizeAttenuation: false }));
+  }
+
   const LoadFile = (file: File) => {
     const ext = file.name.split('.').pop()?.toLowerCase();
     const reader = new FileReader();
@@ -229,7 +247,7 @@ const ThreeScene: React.FC = () => {
         const arrayBuffer = reader.result as ArrayBuffer;
         const object = fbxLoader.parse(arrayBuffer, '');
   
-        if (objRef.current && sceneRef.current) sceneRef.current.remove(objRef.current);
+        //if (objRef.current && sceneRef.current) sceneRef.current.remove(objRef.current);
   
         // Animation setup
         if (object.animations && object.animations.length > 0) {
@@ -255,7 +273,7 @@ const ThreeScene: React.FC = () => {
   };
 
   const setupObject = (object: THREE.Object3D, scene: THREE.Scene, data: any) => {
-    if (objRef.current) scene.remove(objRef.current);
+    //if (objRef.current) scene.remove(objRef.current);
   
     const bbox = new THREE.Box3().setFromObject(object);
     const size = new THREE.Vector3();
@@ -275,7 +293,7 @@ const ThreeScene: React.FC = () => {
     const mesh = object.children.find((c): c is THREE.Mesh => (c as THREE.Mesh).isMesh);
     if (mesh) objGeoRef.current = mesh.geometry as THREE.BufferGeometry;
   
-    objRef.current = object;
+    ObjectsRef.current = object; 
     scene.add(object);
   };
   

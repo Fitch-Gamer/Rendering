@@ -8,20 +8,38 @@ const LilGUI = () => {
   useEffect(() => {
       const gui = new GUI();
 
+      let tmp = gui.addFolder("Cube");
+
       // Explicitly type the `value` parameter based on the expected type
-      gui.add(data, 'xspeed', 0, 10, 0.1)
+      tmp.add(data, 'xspeed', -10, 10, 0.1)
         .name('X Speed')
         .onChange((value: number) => setData(prev => ({ ...prev, xspeed: value })));
 
-      gui.add(data, 'yspeed', 0, 10, 0.1)
+      tmp.add(data, 'yspeed', -10, 10, 0.1)
         .name('Y Speed')
         .onChange((value: number) => setData(prev => ({ ...prev, yspeed: value })));
 
-      gui.add(data, 'zspeed', 0, 10, 0.1)
+      tmp.add(data, 'zspeed', -10, 10, 0.1)
         .name('Z Speed')
         .onChange((value: number) => setData(prev => ({ ...prev, zspeed: value })));
 
-      gui.addColor(data, 'color')
+
+
+      tmp.add(data, 'xpos', -10, 10, 0.1)
+        .name('X Position')
+        .onChange((value: number) => setData(prev => ({ ...prev, xpos: value })));
+
+      tmp.add(data, 'ypos', -10, 10, 0.1)
+        .name('Y Position')
+        .onChange((value: number) => setData(prev => ({ ...prev, ypos: value })));
+
+      tmp.add(data, 'zpos', -10, 10, 0.1)
+        .name('Z Position')
+        .onChange((value: number) => setData(prev => ({ ...prev, zpos: value })));
+
+
+
+      tmp.addColor(data, 'color')
         .name('Color')
         .onChange((value: string) => setData(prev => ({ ...prev, color: value })));
 
@@ -32,7 +50,7 @@ const LilGUI = () => {
           },
         };
       
-        gui.add(actions, 'loadModel').name('Load Bunny');
+        gui.add(actions, 'loadModel').name('Load Object');
 
       return () => {
         gui.destroy();

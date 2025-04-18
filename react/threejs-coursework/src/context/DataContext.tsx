@@ -4,6 +4,11 @@ type GUIData = {
   xspeed: number;
   yspeed: number;
   zspeed: number;
+
+  xpos: number;
+  ypos: number;
+  zpos: number;
+
   color: string;
 };
 
@@ -16,6 +21,9 @@ const defaultData: GUIData = {
   xspeed: 1,
   yspeed: 1,
   zspeed: 1,
+  xpos: 0,
+  ypos: 0,
+  zpos: 0,
   color: '#00ffcc',
 };
 
