@@ -26,7 +26,7 @@ const ThreeScene: React.FC = () => {
 
 
 
-  let mixer: THREE.AnimationMixer[]  = [];
+  const mixersRef = useRef<THREE.AnimationMixer[]>([]);
 
   const { data } = useData();
   const dataRef = useRef(data);
@@ -168,8 +168,7 @@ const ThreeScene: React.FC = () => {
       requestAnimationFrame(animate);
     
       const delta = clock.getDelta();
-      console.log(mixer);
-      mixer.forEach((element) => element.update(delta));
+      mixersRef?.current.forEach((element: { update: (arg0: number) => any; }) => element.update(delta));
     
       if (objRef.current) {
 
@@ -255,9 +254,9 @@ const ThreeScene: React.FC = () => {
   
         // Animation setup
         if (object.animations && object.animations.length > 0) {
-          mixer?.push(new THREE.AnimationMixer(object));
+          mixersRef?.current.push(new THREE.AnimationMixer(object));
           object.animations.forEach((clip: THREE.AnimationClip) => {
-            if(mixer) mixer[mixer.length -1]!.clipAction(clip).play();
+            if(mixersRef.current) mixersRef.current[mixersRef.current.length -1]!.clipAction(clip).play();
           });
         }
   

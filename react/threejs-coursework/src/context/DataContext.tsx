@@ -13,7 +13,7 @@ type GUIData = {
 };
 
 type DataContextType = {
-  data: GUIData;
+  data:GUIData;
   setData: React.Dispatch<React.SetStateAction<GUIData>>;
 };
 
@@ -25,6 +25,7 @@ const defaultData: GUIData = {
   ypos:0,
   zpos:0,
   color: '#00ffcc',
+
 };
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
